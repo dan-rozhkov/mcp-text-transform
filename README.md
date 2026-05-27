@@ -145,44 +145,4 @@ https://hermes-agent.ru/docs/user-guide_features_mcp.html
 
 После рестарта Hermes появятся инструменты: `mcp_text_transform_uppercase`, `mcp_text_transform_lowercase`, `mcp_text_transform_reverse`, `mcp_text_transform_count`, `mcp_text_transform_trim`, `mcp_text_transform_slugify`, `mcp_text_transform_word_frequency`.
 
-## Gigacode CLI: конфигурация
 
-Gigacode CLI (`@sandbox-agent/gigacode`) запускает OpenCode TUI поверх Sandbox Agent, поэтому MCP-серверы настраиваются в конфигурации OpenCode.
-OpenCode читает глобальный файл `~/.config/opencode/opencode.json` и проектный файл `opencode.json` в корне репозитория.
-
-Установка Gigacode по документации:
-
-```bash
-curl -fsSL https://releases.rivet.dev/sandbox-agent/latest/gigacode-install.sh | sh
-# или
-npm install -g @sandbox-agent/gigacode
-```
-
-Для этого проекта добавлен `opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "mcp": {
-    "text-transform": {
-      "type": "local",
-      "command": [
-        "node",
-        "/Users/daniilrozhkov/prj/mcp-text-transform/index.js"
-      ],
-      "enabled": true,
-      "timeout": 5000
-    }
-  }
-}
-```
-
-После установки запустите Gigacode из корня проекта:
-
-```bash
-gigacode
-```
-
-OpenCode/Gigacode должен обнаружить локальный MCP-сервер `text-transform` и его инструменты `uppercase`, `lowercase`, `reverse`, `count`, `trim`, `slugify`, `word_frequency`.
-
-Примечание для этой машины: на момент проверки установка была заблокирована DNS/network sandbox (`registry.npmjs.org` и `releases.rivet.dev` не резолвились), поэтому реальный запуск `gigacode` невозможен до восстановления сетевого доступа.
