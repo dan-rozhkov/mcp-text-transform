@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import {
   CallToolResultSchema,
   ErrorCode,
@@ -9,14 +12,20 @@ import {
 import {
   callTool,
   getPort,
+  getServerName,
   getTransportMode,
+  installQwenSettings,
   listTools,
   startHttpServer,
 } from "./index.js";
 
-async function textFor(name, text) {
+async function textFor(name: string, text: string) {
   const result = await callTool({ name, arguments: { text } });
   return result.content[0].text;
+}
+
+async function makeTempDir() {
+  return fs.mkdtemp(path.join(os.tmpdir(), "mcp-text-transform-"));
 }
 
 test("lists all supported MCP tools with schemas", async () => {
@@ -39,6 +48,7 @@ test("lists all supported MCP tools with schemas", async () => {
     assert.equal(tool.inputSchema.type, "object");
     assert.deepEqual(tool.inputSchema.required, ["text"]);
     assert.equal(tool.inputSchema.properties.text.type, "string");
+    assert.equal(tool.outputSchema.type, "object");
   }
 });
 
@@ -122,6 +132,93 @@ test("selects stdio by default and HTTP via CLI arg or env var", () => {
   );
 });
 
+test("reads server name from CLI, env, or default", () => {
+  assert.equal(getServerName(["node", "index.js"], {}), "text-transform");
+  assert.equal(
+    getServerName(["node", "index.js"], { MCP_SERVER_NAME: "env-transform" }),
+    "env-transform"
+  );
+  assert.equal(
+    getServerName(["node", "index.js", "--server-name", "cli-transform"], {
+      MCP_SERVER_NAME: "env-transform",
+    }),
+    "cli-transform"
+  );
+  assert.equal(
+    getServerName(["node", "index.js", "--server-name=equals-transform"], {}),
+    "equals-transform"
+  );
+});
+
+test("installs Qwen settings without overwriting existing MCP servers", async () => {
+  const installDir = await makeTempDir();
+  await fs.mkdir(path.join(installDir, ".qwen"), { recursive: true });
+  await fs.writeFile(
+    path.join(installDir, ".qwen", "settings.json"),
+    JSON.stringify(
+      {
+        theme: "dark",
+        mcpServers: {
+          existing: {
+            command: "node",
+            args: ["/existing/index.js"],
+          },
+          "text-transform": {
+            command: "node",
+            args: ["/custom/index.js"],
+          },
+        },
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  const result = await installQwenSettings({
+    installDir,
+    serverName: "text-transform",
+    entrypoint: "/new/index.js",
+  });
+  const settings = JSON.parse(
+    await fs.readFile(path.join(installDir, ".qwen", "settings.json"), "utf8")
+  );
+
+  assert.equal(result.alreadyExists, true);
+  assert.equal(settings.theme, "dark");
+  assert.deepEqual(settings.mcpServers.existing, {
+    command: "node",
+    args: ["/existing/index.js"],
+  });
+  assert.deepEqual(settings.mcpServers["text-transform"], {
+    command: "node",
+    args: ["/custom/index.js"],
+  });
+});
+
+test("installs Qwen settings with a custom server name", async () => {
+  const installDir = await makeTempDir();
+
+  const result = await installQwenSettings({
+    installDir,
+    serverName: "custom-transform",
+    entrypoint: "/repo/index.js",
+  });
+  const settings = JSON.parse(
+    await fs.readFile(path.join(installDir, ".qwen", "settings.json"), "utf8")
+  );
+
+  assert.equal(result.alreadyExists, false);
+  assert.deepEqual(settings, {
+    mcpServers: {
+      "custom-transform": {
+        command: "node",
+        args: ["/repo/index.js"],
+      },
+    },
+  });
+});
+
 test("reads PORT from env and defaults to 3000", () => {
   assert.equal(getPort({}), 3000);
   assert.equal(getPort({ PORT: "3456" }), 3456);
@@ -135,7 +232,7 @@ test("HTTP server starts and responds to health checks", async (t) => {
   try {
     httpServer = await startHttpServer({ port: 0, host: "127.0.0.1" });
   } catch (error) {
-    if (error?.code === "EPERM") {
+    if (typeof error === "object" && error && "code" in error && error.code === "EPERM") {
       t.skip("environment does not permit opening a local HTTP listener");
       return;
     }
@@ -144,13 +241,15 @@ test("HTTP server starts and responds to health checks", async (t) => {
   }
 
   try {
-    const { port } = httpServer.address();
-    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    const address = httpServer.address();
+    assert.equal(typeof address, "object");
+    assert(address);
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`);
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { status: "ok" });
   } finally {
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       httpServer.close((error) => (error ? reject(error) : resolve()));
     });
   }

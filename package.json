@@ -3,19 +3,46 @@
   "version": "1.0.0",
   "description": "Simple MCP server: accepts text, transforms it, returns result. Works with QwenCode CLI.",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "files": [
+    "dist/index.js",
+    "index.js",
+    "README.md",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "mcp",
+    "qwen",
+    "qwen-code",
+    "text-transform",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dan-rozhkov/mcp-text-transform.git"
+  },
   "bin": {
     "mcp-text-transform": "./index.js"
   },
   "scripts": {
     "start": "node index.js",
     "start:http": "node index.js --http",
-    "test": "node --test"
+    "build": "tsc || { code=$?; if [ \"$code\" -eq 127 ]; then node scripts/build-with-node.mjs; else exit \"$code\"; fi; }",
+    "dev": "tsc --watch",
+    "test": "npm run build && node --test \"dist/**/*.test.js\"",
+    "prepublishOnly": "npm run build && npm test"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
   }
 }
