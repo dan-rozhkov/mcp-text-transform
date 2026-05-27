@@ -1,0 +1,16 @@
+{
+  "name": "mcp-text-transform",
+  "version": "1.0.0",
+  "description": "Simple MCP server: accepts text, transforms it, returns result. Works with QwenCode CLI.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "mcp-text-transform": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
