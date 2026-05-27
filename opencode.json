@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "text-transform": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/daniilrozhkov/prj/mcp-text-transform/index.js"
+      ],
+      "enabled": true,
+      "timeout": 5000
+    }
+  }
+}
