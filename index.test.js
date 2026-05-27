@@ -6,7 +6,13 @@ import {
   ListToolsResultSchema,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
-import { callTool, listTools } from "./index.js";
+import {
+  callTool,
+  getPort,
+  getTransportMode,
+  listTools,
+  startHttpServer,
+} from "./index.js";
 
 async function textFor(name, text) {
   const result = await callTool({ name, arguments: { text } });
@@ -105,4 +111,47 @@ test("rejects unknown tools with MCP InvalidParams", async () => {
       error.code === ErrorCode.InvalidParams &&
       error.message.includes("Unknown tool: missing")
   );
+});
+
+test("selects stdio by default and HTTP via CLI arg or env var", () => {
+  assert.equal(getTransportMode(["node", "index.js"], {}), "stdio");
+  assert.equal(getTransportMode(["node", "index.js", "--http"], {}), "http");
+  assert.equal(
+    getTransportMode(["node", "index.js"], { MCP_TRANSPORT: "http" }),
+    "http"
+  );
+});
+
+test("reads PORT from env and defaults to 3000", () => {
+  assert.equal(getPort({}), 3000);
+  assert.equal(getPort({ PORT: "3456" }), 3456);
+  assert.throws(() => getPort({ PORT: "nope" }), /Invalid PORT value/);
+  assert.throws(() => getPort({ PORT: "123abc" }), /Invalid PORT value/);
+});
+
+test("HTTP server starts and responds to health checks", async (t) => {
+  let httpServer;
+
+  try {
+    httpServer = await startHttpServer({ port: 0, host: "127.0.0.1" });
+  } catch (error) {
+    if (error?.code === "EPERM") {
+      t.skip("environment does not permit opening a local HTTP listener");
+      return;
+    }
+
+    throw error;
+  }
+
+  try {
+    const { port } = httpServer.address();
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { status: "ok" });
+  } finally {
+    await new Promise((resolve, reject) => {
+      httpServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
 });

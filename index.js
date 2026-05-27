@@ -1,7 +1,9 @@
 #!/usr/bin/env node
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ErrorCode,
@@ -214,10 +216,109 @@ export function createServer() {
   return server;
 }
 
-export async function main() {
+export function getTransportMode(argv = process.argv, env = process.env) {
+  if (argv.includes("--http") || env.MCP_TRANSPORT === "http") {
+    return "http";
+  }
+
+  return "stdio";
+}
+
+export function getPort(env = process.env) {
+  const rawPort = env.PORT ?? "3000";
+
+  if (!/^\d+$/u.test(rawPort)) {
+    throw new Error(`Invalid PORT value: ${rawPort}`);
+  }
+
+  const port = Number.parseInt(rawPort, 10);
+
+  if (port > 65535) {
+    throw new Error(`Invalid PORT value: ${rawPort}`);
+  }
+
+  return port;
+}
+
+function writeJson(res, statusCode, body) {
+  res.writeHead(statusCode, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
+async function handleMcpHttpRequest(req, res) {
+  const server = createServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+  });
+  res.once("finish", async () => {
+    await Promise.allSettled([transport.close(), server.close()]);
+  });
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res);
+  } catch (error) {
+    console.error("Error handling MCP HTTP request:", error);
+    if (!res.headersSent) {
+      writeJson(res, 500, {
+        jsonrpc: "2.0",
+        error: {
+          code: -32603,
+          message: "Internal server error",
+        },
+        id: null,
+      });
+    } else {
+      res.end();
+    }
+  }
+}
+
+export async function startHttpServer({ port = getPort(), host } = {}) {
+  const httpServer = http.createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://localhost");
+
+    if (req.method === "GET" && url.pathname === "/health") {
+      writeJson(res, 200, { status: "ok" });
+      return;
+    }
+
+    if (url.pathname === "/mcp") {
+      await handleMcpHttpRequest(req, res);
+      return;
+    }
+
+    writeJson(res, 404, { error: "Not found" });
+  });
+
+  await new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, host, () => {
+      httpServer.off("error", reject);
+      resolve();
+    });
+  });
+
+  return httpServer;
+}
+
+export async function startStdioServer() {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+export async function main() {
+  if (getTransportMode() === "http") {
+    const httpServer = await startHttpServer();
+    const address = httpServer.address();
+    const port = typeof address === "object" && address ? address.port : getPort();
+
+    console.error(`MCP Streamable HTTP server listening on port ${port}`);
+    return;
+  }
+
+  await startStdioServer();
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
