@@ -242,8 +242,9 @@ test("HTTP server starts and responds to health checks", async (t) => {
 
   try {
     const address = httpServer.address();
-    assert.equal(typeof address, "object");
-    assert(address);
+    if (typeof address !== "object" || address === null) {
+      throw new Error("HTTP server did not expose a TCP address");
+    }
     const response = await fetch(`http://127.0.0.1:${address.port}/health`);
 
     assert.equal(response.status, 200);

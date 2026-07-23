@@ -6,52 +6,48 @@ import { fileURLToPath } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError, } from "@modelcontextprotocol/sdk/types.js";
 const defaultServerName = "text-transform";
 const textInputSchema = {
     type: "object",
     properties: {
         text: {
             type: "string",
-            description: "The text to transform"
-        }
+            description: "The text to transform",
+        },
     },
-    required: [
-        "text"
-    ],
-    additionalProperties: false
+    required: ["text"],
+    additionalProperties: false,
 };
 const textOutputSchema = {
     type: "object",
     properties: {
         text: {
             type: "string",
-            description: "The transformed text"
-        }
+            description: "The transformed text",
+        },
     },
-    required: [
-        "text"
-    ],
-    additionalProperties: false
+    required: ["text"],
+    additionalProperties: false,
 };
 export const tools = [
     {
         name: "uppercase",
         description: "Convert text to uppercase, e.g. hello -> HELLO.",
         inputSchema: textInputSchema,
-        outputSchema: textOutputSchema
+        outputSchema: textOutputSchema,
     },
     {
         name: "lowercase",
         description: "Convert text to lowercase, e.g. HELLO -> hello.",
         inputSchema: textInputSchema,
-        outputSchema: textOutputSchema
+        outputSchema: textOutputSchema,
     },
     {
         name: "reverse",
         description: "Reverse text by Unicode code point, e.g. abc🙂 -> 🙂cba.",
         inputSchema: textInputSchema,
-        outputSchema: textOutputSchema
+        outputSchema: textOutputSchema,
     },
     {
         name: "count",
@@ -60,35 +56,25 @@ export const tools = [
         outputSchema: {
             type: "object",
             properties: {
-                characters: {
-                    type: "number"
-                },
-                words: {
-                    type: "number"
-                },
-                lines: {
-                    type: "number"
-                }
+                characters: { type: "number" },
+                words: { type: "number" },
+                lines: { type: "number" },
             },
-            required: [
-                "characters",
-                "words",
-                "lines"
-            ],
-            additionalProperties: false
-        }
+            required: ["characters", "words", "lines"],
+            additionalProperties: false,
+        },
     },
     {
         name: "trim",
         description: "Remove leading and trailing whitespace, e.g. '  hello  ' -> 'hello'.",
         inputSchema: textInputSchema,
-        outputSchema: textOutputSchema
+        outputSchema: textOutputSchema,
     },
     {
         name: "slugify",
         description: "Convert text into a URL-friendly slug, e.g. Crème brûlée & Tea -> creme-brulee-tea.",
         inputSchema: textInputSchema,
-        outputSchema: textOutputSchema
+        outputSchema: textOutputSchema,
     },
     {
         name: "word_frequency",
@@ -97,32 +83,20 @@ export const tools = [
         outputSchema: {
             type: "object",
             properties: {
-                totalWords: {
-                    type: "number"
-                },
-                uniqueWords: {
-                    type: "number"
-                },
+                totalWords: { type: "number" },
+                uniqueWords: { type: "number" },
                 frequencies: {
                     type: "object",
-                    additionalProperties: {
-                        type: "number"
-                    }
-                }
+                    additionalProperties: { type: "number" },
+                },
             },
-            required: [
-                "totalWords",
-                "uniqueWords",
-                "frequencies"
-            ],
-            additionalProperties: false
-        }
-    }
+            required: ["totalWords", "uniqueWords", "frequencies"],
+            additionalProperties: false,
+        },
+    },
 ];
 export async function listTools() {
-    return {
-        tools
-    };
+    return { tools };
 }
 function requireText(args) {
     if (!args || typeof args !== "object" || typeof args.text !== "string") {
@@ -132,45 +106,39 @@ function requireText(args) {
 }
 function textResult(text) {
     return {
-        content: [
-            {
-                type: "text",
-                text
-            }
-        ],
-        structuredContent: {
-            text
-        }
+        content: [{ type: "text", text }],
+        structuredContent: { text },
     };
 }
 function jsonResult(value) {
     return {
-        content: [
-            {
-                type: "text",
-                text: JSON.stringify(value, null, 2)
-            }
-        ],
-        structuredContent: value
+        content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+        structuredContent: value,
     };
 }
 function countText(text) {
     return {
         characters: Array.from(text).length,
         words: text.trim() ? text.trim().split(/\s+/u).length : 0,
-        lines: text ? text.split(/\r\n|\r|\n/u).length : 0
+        lines: text ? text.split(/\r\n|\r|\n/u).length : 0,
     };
 }
 function slugify(text) {
-    return text.normalize("NFKD").replace(/[\u0300-\u036f]/gu, "").toLowerCase().trim().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "");
+    return text
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/gu, "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-+|-+$/gu, "");
 }
 function wordFrequency(text) {
     const words = text.toLowerCase().match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) ?? [];
     const frequencies = {};
-    for (const word of words){
+    for (const word of words) {
         frequencies[word] = (frequencies[word] ?? 0) + 1;
     }
-    const sortedFrequencies = Object.fromEntries(Object.entries(frequencies).sort(([wordA, countA], [wordB, countB])=>{
+    const sortedFrequencies = Object.fromEntries(Object.entries(frequencies).sort(([wordA, countA], [wordB, countB]) => {
         if (countB !== countA) {
             return countB - countA;
         }
@@ -179,16 +147,16 @@ function wordFrequency(text) {
     return {
         totalWords: words.length,
         uniqueWords: Object.keys(frequencies).length,
-        frequencies: sortedFrequencies
+        frequencies: sortedFrequencies,
     };
 }
 export async function callTool(params) {
     const { name, arguments: args } = params ?? {};
-    if (!tools.some((tool)=>tool.name === name)) {
+    if (!tools.some((tool) => tool.name === name)) {
         throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${name}`);
     }
     const text = requireText(args);
-    switch(name){
+    switch (name) {
         case "uppercase":
             return textResult(text.toUpperCase());
         case "lowercase":
@@ -210,19 +178,19 @@ export async function callTool(params) {
 export function createServer({ serverName = defaultServerName } = {}) {
     const server = new Server({
         name: serverName,
-        version: "1.0.0"
+        version: "1.0.0",
     }, {
         capabilities: {
-            tools: {}
-        }
+            tools: {},
+        },
     });
     server.setRequestHandler(ListToolsRequestSchema, listTools);
-    server.setRequestHandler(CallToolRequestSchema, async (request)=>callTool(request.params));
+    server.setRequestHandler(CallToolRequestSchema, async (request) => callTool(request.params));
     return server;
 }
 function getFlagValue(argv, flag) {
     const equalsPrefix = `${flag}=`;
-    const equalsValue = argv.find((arg)=>arg.startsWith(equalsPrefix));
+    const equalsValue = argv.find((arg) => arg.startsWith(equalsPrefix));
     if (equalsValue) {
         return equalsValue.slice(equalsPrefix.length);
     }
@@ -233,7 +201,7 @@ function getFlagValue(argv, flag) {
     return undefined;
 }
 export function hasCliFlag(argv, flag) {
-    return argv.includes(flag) || argv.some((arg)=>arg.startsWith(`${flag}=`));
+    return argv.includes(flag) || argv.some((arg) => arg.startsWith(`${flag}=`));
 }
 export function getTransportMode(argv = process.argv, env = process.env) {
     if (argv.includes("--http") || env.MCP_TRANSPORT === "http") {
@@ -259,61 +227,54 @@ export function getPort(env = process.env) {
     return port;
 }
 function writeJson(res, statusCode, body) {
-    res.writeHead(statusCode, {
-        "content-type": "application/json"
-    });
+    res.writeHead(statusCode, { "content-type": "application/json" });
     res.end(JSON.stringify(body));
 }
 async function handleMcpHttpRequest(req, res) {
     const server = createServer();
     const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined
+        sessionIdGenerator: undefined,
     });
-    res.once("finish", async ()=>{
-        await Promise.allSettled([
-            transport.close(),
-            server.close()
-        ]);
+    res.once("finish", async () => {
+        await Promise.allSettled([transport.close(), server.close()]);
     });
     try {
         await server.connect(transport);
         await transport.handleRequest(req, res);
-    } catch (error) {
+    }
+    catch (error) {
         console.error("Error handling MCP HTTP request:", error);
         if (!res.headersSent) {
             writeJson(res, 500, {
                 jsonrpc: "2.0",
                 error: {
                     code: -32603,
-                    message: "Internal server error"
+                    message: "Internal server error",
                 },
-                id: null
+                id: null,
             });
-        } else {
+        }
+        else {
             res.end();
         }
     }
 }
 export async function startHttpServer({ port = getPort(), host } = {}) {
-    const httpServer = http.createServer(async (req, res)=>{
+    const httpServer = http.createServer(async (req, res) => {
         const url = new URL(req.url ?? "/", "http://localhost");
         if (req.method === "GET" && url.pathname === "/health") {
-            writeJson(res, 200, {
-                status: "ok"
-            });
+            writeJson(res, 200, { status: "ok" });
             return;
         }
         if (url.pathname === "/mcp") {
             await handleMcpHttpRequest(req, res);
             return;
         }
-        writeJson(res, 404, {
-            error: "Not found"
-        });
+        writeJson(res, 404, { error: "Not found" });
     });
-    await new Promise((resolve, reject)=>{
+    await new Promise((resolve, reject) => {
         httpServer.once("error", reject);
-        httpServer.listen(port, host, ()=>{
+        httpServer.listen(port, host, () => {
             httpServer.off("error", reject);
             resolve();
         });
@@ -321,9 +282,7 @@ export async function startHttpServer({ port = getPort(), host } = {}) {
     return httpServer;
 }
 export async function startStdioServer({ serverName = defaultServerName } = {}) {
-    const server = createServer({
-        serverName
-    });
+    const server = createServer({ serverName });
     const transport = new StdioServerTransport();
     await server.connect(transport);
 }
@@ -338,42 +297,32 @@ function getDefaultEntrypoint(metaUrl = import.meta.url) {
 async function readSettings(settingsPath) {
     try {
         return JSON.parse(await fs.readFile(settingsPath, "utf8"));
-    } catch (error) {
+    }
+    catch (error) {
         if (typeof error === "object" && error && "code" in error && error.code === "ENOENT") {
             return {};
         }
         throw error;
     }
 }
-export async function installQwenSettings({ installDir = process.cwd(), serverName = defaultServerName, entrypoint = getDefaultEntrypoint() } = {}) {
+export async function installQwenSettings({ installDir = process.cwd(), serverName = defaultServerName, entrypoint = getDefaultEntrypoint(), } = {}) {
     const qwenDir = path.join(installDir, ".qwen");
     const settingsPath = path.join(qwenDir, "settings.json");
     const settings = await readSettings(settingsPath);
-    const existingMcpServers = settings.mcpServers && typeof settings.mcpServers === "object" ? settings.mcpServers : {};
-    const mcpServers = {
-        ...existingMcpServers
-    };
+    const existingMcpServers = settings.mcpServers && typeof settings.mcpServers === "object"
+        ? settings.mcpServers
+        : {};
+    const mcpServers = { ...existingMcpServers };
     const alreadyExists = Object.hasOwn(mcpServers, serverName);
     if (!alreadyExists) {
         mcpServers[serverName] = {
             command: "node",
-            args: [
-                entrypoint
-            ]
+            args: [entrypoint],
         };
     }
-    await fs.mkdir(qwenDir, {
-        recursive: true
-    });
-    await fs.writeFile(settingsPath, `${JSON.stringify({
-        ...settings,
-        mcpServers
-    }, null, 2)}\n`, "utf8");
-    return {
-        settingsPath,
-        serverName,
-        alreadyExists
-    };
+    await fs.mkdir(qwenDir, { recursive: true });
+    await fs.writeFile(settingsPath, `${JSON.stringify({ ...settings, mcpServers }, null, 2)}\n`, "utf8");
+    return { settingsPath, serverName, alreadyExists };
 }
 export async function main(argv = process.argv, env = process.env) {
     const serverName = getServerName(argv, env);
@@ -381,7 +330,7 @@ export async function main(argv = process.argv, env = process.env) {
         const result = await installQwenSettings({
             installDir: getInstallDir(argv),
             serverName,
-            entrypoint: getDefaultEntrypoint()
+            entrypoint: getDefaultEntrypoint(),
         });
         const action = result.alreadyExists ? "already exists in" : "installed to";
         console.error(`Qwen MCP server "${serverName}" ${action} ${result.settingsPath}`);
@@ -394,9 +343,7 @@ export async function main(argv = process.argv, env = process.env) {
         console.error(`MCP Streamable HTTP server listening on port ${port}`);
         return;
     }
-    await startStdioServer({
-        serverName
-    });
+    await startStdioServer({ serverName });
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
     await main();
